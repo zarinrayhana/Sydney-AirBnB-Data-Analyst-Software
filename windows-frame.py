@@ -13,7 +13,7 @@ def main():
 
     root = Tk()
     root.geometry("850x500+500+500")
-    root.resizable(width=False, height=False)
+    root.resizable(width=True, height=True)
     app = soft_frame(root)
     root.mainloop()  
 
