@@ -1,6 +1,6 @@
 from tkinter import Tk, Frame, BOTH
 
-class Example(Frame):
+class soft_frame(Frame):
 
     def __init__(self, parent):
         Frame.__init__(self, parent, background="white")   
@@ -14,7 +14,7 @@ def main():
     root = Tk()
     root.geometry("850x500+500+500")
     root.resizable(width=False, height=False)
-    app = Example(root)
+    app = soft_frame(root)
     root.mainloop()  
 
 if __name__ == '__main__':
