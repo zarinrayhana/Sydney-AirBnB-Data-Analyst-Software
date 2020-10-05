@@ -1,4 +1,7 @@
+
 import wx
+import wx.grid
+
 
 
 
@@ -19,11 +22,11 @@ class bucky (wx.Frame) :
         customise.SetForegroundColour('white')
         customise.SetBackgroundColour('light blue')
 
-        search_Suburb =  wx.Button(panel, -1, "Search Suburb",(10,130), (140,-1))
-        self.Bind(wx.EVT_BUTTON, self.searchbutton, search_Suburb)
+        enter_Suburb =  wx.Button(panel, -1, "Enter Suburb",(10,130), (140,-1))
+        self.Bind(wx.EVT_BUTTON, self.entersuburbbutton, enter_Suburb)
 
-        search_keyword = wx.Button(panel, -1, "Search Keyword", (10, 190), (140, -1))
-        self.Bind(wx.EVT_BUTTON, self.keywordbutton, search_keyword)
+        enter_keyword = wx.Button(panel, -1, "Enter Keyword", (10, 190), (140, -1))
+        self.Bind(wx.EVT_BUTTON, self.enterkeywordbutton, enter_keyword)
 
         search_startperiod = wx.Button(panel, -1, "Select Start Period", (550, 130), (140, -1))
         self.Bind(wx.EVT_BUTTON, self.startperiodbutton, search_startperiod)
@@ -31,25 +34,37 @@ class bucky (wx.Frame) :
         search_endperiod = wx.Button(panel, -1, "Select End Period", (850, 130), (140, -1))
         self.Bind(wx.EVT_BUTTON, self.endperiodbutton, search_endperiod)
 
-    def searchbutton(self,event):
-        search = wx.TextEntryDialog(None, "Search Suburb", "Title", "Ashgrove")
-        if search.ShowModal()==wx.ID_OK:
-            answer =search.GetValue()
+        search_again = wx.Button(panel,-1, "Search Again", (300, 520), (500, -1))
+        self.Bind(wx.EVT_BUTTON, self.endperiodbutton, search_endperiod)
 
-    def keywordbutton(self, event):
-        searchkey = wx.TextEntryDialog(None, "Search Keyword", "Title", "Pool")
-        if searchkey.ShowModal() == wx.ID_OK:
-            answerkey = searchkey.GetValue()
+        search_again = wx.Button(panel, -1, "Show Price Distribution", (300, 550), (500, -1))
+        self.Bind(wx.EVT_BUTTON, self.endperiodbutton, search_endperiod)
+
+        search_again = wx.Button(panel, -1, "Show Popular Properties", (300, 580), (500, -1))
+        self.Bind(wx.EVT_BUTTON, self.endperiodbutton, search_endperiod)
+
+
+    def entersuburbbutton(self,event):
+        enter = wx.TextEntryDialog(None, "Enter Suburb", "Title", "Ashgrove")
+        if enter.ShowModal()==wx.ID_OK:
+            self.answer =enter.GetValue()
+
+    def enterkeywordbutton(self, event):
+        enterkey = wx.TextEntryDialog(None, "Enter Keyword", "Title", "Pool")
+        if enterkey.ShowModal() == wx.ID_OK:
+            answerkey = enterkey.GetValue()
 
     def startperiodbutton(self, event):
         search_startperiod = wx.TextEntryDialog(None, "Select First Period", "Title", "1/09/2018")
         if search_startperiod.ShowModal() == wx.ID_OK:
-            answerstartperiod = search_startperiod.GetValue()
+            self.answerstartperiod = search_startperiod.GetValue()
 
     def endperiodbutton(self, event):
         search_endperiod = wx.TextEntryDialog(None, "Select First Period", "Title", "1/09/2018")
         if search_endperiod.ShowModal() == wx.ID_OK:
             answerendperiod = search_endperiod.GetValue()
+
+
 
 
 
