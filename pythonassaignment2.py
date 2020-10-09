@@ -37,6 +37,7 @@ class gui (wx.Frame) :
         self.Bind(wx.EVT_BUTTON, self.search, search)
 
         searchagain = wx.Button(self.panel, -1, "Search Again", (300, 440), (500, -1))
+        self.Bind(wx.EVT_BUTTON, self.searchagain, searchagain)
 
         showprice = wx.Button(self.panel, -1, "Show Price Distribution", (300, 470), (500, -1))
 
@@ -76,6 +77,13 @@ class gui (wx.Frame) :
         result.SetForegroundColour('white')
         result.SetBackgroundColour('light blue')
         # print(self.userInput['suburbs'])
+
+    def searchagain(self,event):
+        self.Refresh()
+
+
+
+
 
 
 if __name__ == '__main__':
