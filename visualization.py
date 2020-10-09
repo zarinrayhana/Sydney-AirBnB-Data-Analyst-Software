@@ -212,27 +212,24 @@ def showPopularListings(startperiod, endperiod, suburbName='sydney'):
 def showCleanComments():
     cleanCommentTotal = 0
     cleanlinessKeywordDict = {}
-    print(reviews)
+    # print(reviews)
 
     allCommentStr = reviews.comments.values.tolist()
     print(type(allCommentStr))
-    print(allCommentStr)
+    # print(allCommentStr)
     totalCommentList = int(len(allCommentStr))
 
     for kw in cleanlinessKeywords:
-        for i in range(totalCommentList):
-            if kw in allCommentStr[i] and kw not in (cleanlinessKeywordDict.keys()):
+        for comment in allCommentStr:
+            if kw in str(comment) and kw not in (cleanlinessKeywordDict.keys()):
                 cleanCommentTotal += 1
                 cleanlinessKeywordDict[kw] = 1
-            elif kw in allCommentStr[i] and kw in (cleanlinessKeywordDict.keys()):
+            elif kw in str(comment) and kw in (cleanlinessKeywordDict.keys()):
                 cleanCommentTotal += 1
                 prevCount = cleanlinessKeywordDict[kw]
                 cleanlinessKeywordDict[kw] = prevCount + 1
 
-    # print(cleanlinessKeywordDict)
+    print(cleanlinessKeywordDict)
     return cleanlinessKeywordDict
-
-
-    # reviews['comments'] = reviews.comments.apply(lambda row: for kw in cleanlinessKeywords)
 
 showCleanComments()
