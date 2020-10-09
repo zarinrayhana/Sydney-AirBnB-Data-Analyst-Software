@@ -1,4 +1,3 @@
-
 import wx
 import wx.grid
 
@@ -34,14 +33,17 @@ class gui (wx.Frame) :
         search_endperiod = wx.Button(self.panel, -1, "Select End Period", (850, 130), (140, -1))
         self.Bind(wx.EVT_BUTTON, self.endperiodbutton, search_endperiod)
 
-        search = wx.Button(self.panel,-1, "Search", (300, 520), (500, -1))
+        search = wx.Button(self.panel,-1, "Search", (300, 410), (500, -1))
         self.Bind(wx.EVT_BUTTON, self.search, search)
 
-        showPriceDist = wx.Button(self.panel, -1, "Show Price Distribution", (300, 550), (500, -1))
-        self.Bind(wx.EVT_BUTTON, self.showprice, showPriceDist)
+        searchagain = wx.Button(self.panel, -1, "Search Again", (300, 440), (500, -1))
 
-        showPopularProperties = wx.Button(self.panel, -1, "Show Popular Properties", (300, 580), (500, -1))
-        self.Bind(wx.EVT_BUTTON, self.showpopularprop, showPopularProperties)
+        showprice = wx.Button(self.panel, -1, "Show Price Distribution", (300, 470), (500, -1))
+
+        popularproperties = wx.Button(self.panel, -1, "Show Popular Properties", (300, 500), (500, -1))
+
+        cleanliness = wx.Button(self.panel, -1, "See Cleanliness Comments", (300, 530), (500, -1))
+
 
 
     def entersuburbbutton(self,event):
