@@ -1,202 +1,238 @@
-try:
-    import wx
-    import wx.grid
-    import openpyxl
-    from openpyxl.utils import column_index_from_string
-    from matplotlib import pyplot as plt
-except ImportError:
-    raise ImportError
+import wx
+import wx.grid
+import pandas as pd
+from matplotlib import pyplot as plt
+import datetime
+import json
+from numpy.core.defchararray import lower
 
+# LOAD THE FILES NEEDED
+listings = pd.read_csv('./csvs/listings_dec18.csv')
+reviews = pd.read_csv('./csvs/reviews_dec18.csv')
 
-#LOAD THE FILES NEEDED
-listings = openpyxl.load_workbook('listings_dec18.xlsx')
-comments = openpyxl.load_workbook('reviews_dec18.xlsx')
-
-#THE WORKSHEETS FOR EVERY WORKBOOK FILES
-listingSheet = listings['listings_dec18']
-commentSheet = comments['reviews_dec18']
-
-#GLOBAL VARIABLES
-listingList = []
+# GLOBAL VARIABLES
+# STORE ONLY THE NEEDED COLUMNS INTO NEW DATAFRAMES
+listingsReducedColumns = listings[
+    [
+        'id',
+        'name',
+        'host_name',
+        'host_since',
+        'street',
+        'neighbourhood',
+        'neighbourhood_cleansed',
+        'property_type',
+        'room_type',
+        'amenities',
+        'price',
+        'review_scores_rating'
+    ]
+]
+commentsReducedColumns = reviews[['listing_id', 'comments']]
 cleanlinessKeywords = ['clean', 'neat', 'fresh', 'hygienic', 'taintless', 'sterile', 'sanitary', 'washed', 'flawless', 'bright', 'shiny', 'sparkling']
 
-#LISTING CLASS
-class Listing:
-    def __init__(self, listingID, name, hostName, street, suburb, propType, roomType, amenities, price, availability, reviewScore):
-        self.id = listingID
-        self.name = name
-        self.hostName = hostName
-        self.street = street
-        self.suburb = suburb
-        self.propType = propType
-        self.roomType = roomType
-        self.amenities = amenities
-        self.price = price
-        self.availability = availability
-        self.reviewScore = reviewScore
+# FUNCTIONS TO RETRIEVE LISTINGS BASED ON USER INPUTS
+def showListings(listingToDisplay):
+    cols = listingToDisplay[0] #len = 13
+    rows = len(listingToDisplay)
+
+    df = pd.DataFrame(listingToDisplay[1:], columns=cols)
+    # print(df.shape)
+    # print(df)
+    result = df.to_json(orient='index')
+    #print(result)
+
+    #WRITES THE CONVERTED JSON DATAFRAME TO A FILE SO IT CAN BE USED IN THE GUI MODULE
+    with open('listings.json', 'w') as jsonListings:
+        json.dump(result, jsonListings)
+
+def findKeyword(startperiod, endperiod, keyword):
+    # MANIPULATE THE PROVIDED DATE ARGUMENTS
+    splitStartPeriod = startperiod.split('/')
+    splitEndPeriod = endperiod.split('/')
+    startDate = datetime.datetime(int(splitStartPeriod[-1]), int(splitStartPeriod[-2]), int(splitStartPeriod[-3]))
+    endDate = datetime.datetime(int(splitEndPeriod[-1]), int(splitEndPeriod[-2]), int(splitEndPeriod[-3]))
+
+    listingsReducedColumns.amenities = listingsReducedColumns.amenities.apply(lower)
+    # FILTER THE LISTINGS TO ONES THAT CONTAIN THE PROVIDED KEYWORD
+    # A NEW COLUMN IS CREATED TO STORE WHETHER IF THE LISTING'S A MATCH WITH THE KEYWORD
+    listingsReducedColumns['matchedAmenities'] = listingsReducedColumns.amenities.apply(lambda row: 'match' if keyword in row else 'no match')
+
+    # CONVERT THE HOST_SINCE TYPE INTO DATETIME AND STORE IN A NEW COLUMN
+    listingsReducedColumns['period'] = pd.to_datetime(listingsReducedColumns.host_since)
+
+    # THE LISTING ROWS MATCHING THE PROVIDED KEYWORD IS STORED IN THE 'MATCHED' VARIABLE
+    matched = listingsReducedColumns[
+        (listingsReducedColumns.matchedAmenities == 'match') &
+        (listingsReducedColumns.period >= startDate) &
+        (listingsReducedColumns.period <= endDate)
+    ]
+    matchedListingsIDs = list(matched.id)
+    print('listings matched with {}'.format(keyword))
+    # print(matched)
+    # print(matchedListingsIDs)
+
+    # RETURNS A DICTIONARY WITH THE KEYWORD AS KEY AND MATCHING LISTINGS AS THE VALUE (IN A LIST)
+    return {keyword: matchedListingsIDs}
+
+# findKeyword('1/1/2009', '30/6/2009', 'elevator')
+
+def getListings(startperiod, endperiod, suburbName='sydney', keyword=None):
+    # MANIPULATE THE PROVIDED DATE ARGUMENTS
+    splitStartPeriod = startperiod.split('/')
+    splitEndPeriod = endperiod.split('/')
+    startDate = datetime.datetime(int(splitStartPeriod[-1]), int(splitStartPeriod[-2]), int(splitStartPeriod[-3]))
+    endDate = datetime.datetime(int(splitEndPeriod[-1]), int(splitEndPeriod[-2]), int(splitEndPeriod[-3]))
+
+    # INITIALIZE THE DICTIONARY FOR IF A KEYWORD IS PROVIDED, AND THE LIST TO SEND TO SHOWLISTINGS FUNCTION
+    filteredListings = {}
+    result = []
+    # CONVERT THE STRINGS, KEYWORD AND SUBURBNAME INTO LOWERCASE
+    suburbName = suburbName.lower()
+    listingsReducedColumns.street = listingsReducedColumns.street.apply(lower)
+    listingsReducedColumns.neighbourhood_cleansed = listingsReducedColumns.neighbourhood_cleansed.apply(lower)
+
+    if keyword != None:
+        keyword = keyword.lower()
+        filteredListings = findKeyword(startperiod, endperiod, keyword)
+        # CHECK IF ANY MATCH FOUND
+        if len(filteredListings[keyword]):
+            print('Properties matching the provided keyword found')
+            # RENAMES THE COLUMN MATCHEDAMENITIES INTO ANOTHER NAME INSTEAD OF ADDING A NEW COLUMN, TO BE USED TO MATCH SUBURBNAME
+            listingsReducedColumns.rename(columns={'matchedAmenities': 'matchedSuburb'}, inplace=True)
+
+            # COMPARE THE RETURNED LISTING IDS AND SAVE THE BOOLEAN RESULT IN A NEW COLUMN
+            listingsReducedColumns['matchedSuburb'] = listingsReducedColumns.id.apply(lambda row: 'match' if int(row) in filteredListings[keyword] else 'no match')
+
+            # THE LISTINGS THAT MATCHES THE LISTING IDS AND HAVE SUBURBNAME AS EITHER STREET NAME OR NEIGHBOURHOOD NAME
+            matched = listingsReducedColumns[
+                ((listingsReducedColumns.matchedSuburb == 'match') &
+                (listingsReducedColumns.street == suburbName)) |
+                ((listingsReducedColumns.matchedSuburb == 'match') &
+                (listingsReducedColumns.neighbourhood_cleansed == suburbName)) |
+                ((listingsReducedColumns.matchedSuburb == 'match') &
+                (listingsReducedColumns.neighbourhood == suburbName))
+            ]
+            result = [matched.columns.values.tolist()] + matched.values.tolist()
+        else:
+            return 'No match found'
+
+    else:
+        listingsReducedColumns['period'] = pd.to_datetime(listingsReducedColumns.host_since)
+        matched = listingsReducedColumns[
+            ((listingsReducedColumns.period >= startDate) & (listingsReducedColumns.period <= endDate)) &
+            ((listingsReducedColumns.street == suburbName) |
+             (listingsReducedColumns.neighbourhood_cleansed == suburbName) |
+             (listings.neighbourhood == suburbName)
+             )
+        ]
+        print(matched)
+        result = [matched.columns.values.tolist()] + matched.values.tolist()
+
+    return showListings(result)
+
+# getListings('1/1/2015', '30/12/2019')
+
+def showPriceDist(startperiod, endperiod):
+    # MANIPULATE THE PROVIDED DATE ARGUMENTS
+    splitStartPeriod = startperiod.split('/')
+    splitEndPeriod = endperiod.split('/')
+    startDate = datetime.datetime(int(splitStartPeriod[-1]), int(splitStartPeriod[-2]), int(splitStartPeriod[-3]))
+    endDate = datetime.datetime(int(splitEndPeriod[-1]), int(splitEndPeriod[-2]), int(splitEndPeriod[-3]))
+
+    # CONVERT THE HOST_SINCE STRINGS INTO DATETIME TYPE
+    listingsReducedColumns['period'] = pd.to_datetime(listingsReducedColumns.host_since)
+    # CAST THE STRINGS IN PRICE COLUMN AS FLOAT
+    listingsReducedColumns['price'] = listingsReducedColumns.price.apply(lambda x: float(x.replace('$', '').replace(',', '')) if isinstance(x, str) else float(x))
+
+    # RETURN ONLY RECORDS IN THE PROVIDED PERIODS
+    result = listingsReducedColumns[(listingsReducedColumns.period >= startDate) & (listingsReducedColumns.period <= endDate)]
+    # print(result)
+    years = result.period.dt.year.unique()
+    priceDist = {}
+    for year in years:
+        yearPrice = result[result.period.dt.year == year]
+        priceDist[year] = [yearPrice.price]
+        plt.hist(priceDist[year], range=(0, 3000), bins=150, alpha=0.5, density=True)
+
+    plt.legend([year for year in years])
+    plt.show()
+    return priceDist
+
+# showPriceDist('1/1/2015', '30/12/2019')
+
+def showPopularListings(startperiod, endperiod, suburbName='sydney'):
+    # MANIPULATE THE PROVIDED DATE ARGUMENTS
+    splitStartPeriod = startperiod.split('/')
+    splitEndPeriod = endperiod.split('/')
+    startDate = datetime.datetime(int(splitStartPeriod[-1]), int(splitStartPeriod[-2]), int(splitStartPeriod[-3]))
+    endDate = datetime.datetime(int(splitEndPeriod[-1]), int(splitEndPeriod[-2]), int(splitEndPeriod[-3]))
+
+    # INITIALIZE THE DICTIONARY FOR IF A KEYWORD IS PROVIDED, AND THE LIST TO SEND TO SHOWLISTINGS FUNCTION
+    filteredListings = {}
+
+    # CONVERT THE HOST_SINCE STRINGS INTO DATETIME TYPE
+    listingsReducedColumns['period'] = pd.to_datetime(listingsReducedColumns.host_since)
+    # CONVERT THE STRINGS, KEYWORD AND SUBURBNAME INTO LOWERCASE
+    suburbName = suburbName.lower()
+    listingsReducedColumns.street = listingsReducedColumns.street.apply(lower)
+    listingsReducedColumns.neighbourhood_cleansed = listingsReducedColumns.neighbourhood_cleansed.apply(lower)
+
+    # SORT THE REVIEW_SCORES_RATING COLUMN IN DESCENDING ORDER
+    listingsReducedColumns.sort_values(by='review_scores_rating', inplace=True, ascending=False)
+
+    matched = listingsReducedColumns[
+        ((listingsReducedColumns.period >= startDate) & (listingsReducedColumns.period <= endDate)) &
+        ((listingsReducedColumns.street == suburbName) |
+         (listingsReducedColumns.neighbourhood_cleansed == suburbName) | (listingsReducedColumns.neighbourhood == suburbName))
+    ]
+
+    # CONVERT THE VALUES INTO A LIST
+    allRecords = matched.values.tolist()
+    # SELECTS THE FIRST 5 VALUES
+    top5 = allRecords[:5]
+
+    # STORES THE TOP 5 VALUES AND COLUMN NAMES TO A LIST
+    # AND WRITE THE LIST INTO A JSON FILE TO DISPLAY ON THE GUI LATER
+    result = [matched.columns.values.tolist()] + allRecords
+
+    df = pd.DataFrame(result[1:5], columns=result[0])
+    jsonResult = df.to_json(orient='index')
+    
+    with open('popularListings.json', 'w') as jsonListings:
+        json.dump(jsonResult, jsonListings)
         
-    def __repr__(self):
-        return str(self.__dict__)
+    # STORE THE VALUES INTO THE DICTIONARY WITH SUBURBNAME AS ITS KEY
+    filteredListings[suburbName] = top5
 
-#INDEX OF PROPERTIES WE'LL ADD IN THE CLASS OBJECT
-listingIDCol = column_index_from_string('A') - 1
-listingName = column_index_from_string('E') - 1
-hostNameCol = column_index_from_string('V') - 1
-streetCol = column_index_from_string('AL') - 1
-suburbCol = column_index_from_string('AN') - 1
-propTypeCol = column_index_from_string('AZ') - 1
-roomTypeCol = column_index_from_string('BA') - 1
-amenitiesCol = column_index_from_string('BG') - 1
-priceCol = column_index_from_string('BI') - 1
-availabilityCol = column_index_from_string('BW') - 1
-reviewScoreCol = column_index_from_string('CB')
+    return filteredListings
 
-#ITERATE THROUGH THE LISTINGS FILE, CREATE AN INSTANCE OF LISTING FOR EVERY ROW
-for listing in listingSheet.iter_rows(min_row=2, max_row=100, max_col=reviewScoreCol, values_only=True):
-    #CREATE AN INSTANCE OF CLASS LISTING
-    property = Listing(listing[listingIDCol], listing[listingName], \
-                        listing[hostNameCol], listing[streetCol], \
-                        listing[suburbCol], listing[propTypeCol], \
-                        listing[roomTypeCol], listing[amenitiesCol], \
-                        listing[priceCol], listing[availabilityCol], \
-                        listing[-1])
-    #ADD THE PROPERTY TO THE LIST OF LISTINGS
-    listingList.append(property)
-# print(listingList)
+# showPopularListings('1/1/2018', '31/1/2018', suburbName='waverley')
 
-#FUNCTIONS TO RETRIEVE LISTINGS BASED ON USER INPUTS
-# def showListings(listingToDisplay):
-#     # class myTable(wx.Frame):
-#     #     def __init__(self, parent, id, title):
-#     #         wx.Frame.__init__(self, parent, id, title)
-#     #         self.parent = parent
-#     #         self.initialize()
-            
-#     #     def initialize(self):
-#     #         panel= wx.Panel(self)
-            
-#     #         self.sizer = wx.BoxSizer(wx.VERTICAL)
-            
-#     #         grid = wx.grid.Grid(self, -1)
-#     #         grid.SetRowLabelSize(0)
-#     #         grid.SetColLabelSize(0)
-#     #         grid.CreateGrid(10, len(listingToDisplay))
-            
-#     #         #sets the size in pixels
-#     #         # grid.SetColSize(0, 100)
-#     #         # grid.SetRowSize(row, height)
-            
-#     #         #automatically sizes the rows and columns based on the content
-#     #         grid.AutoSizeColumns(setAsMin=True)
-#     #         grid.AutoSizeRows(setAsMin=True)
-            
-#     #         #rows and columns index start from 0
-#     #         # grid.SetCellValue(3, 3, 'green on grey')
-            
-#     #         #adding values from ext file to the grid
-#     #         for listing in listingToDisplay:
-#     #             rowTitle = list(listing.keys())
-#     #             rowNum = 0
-#     #             # colNum = 0
-                
-#     #             for col in range(0, 11):
-#     #                 grid.SetCellValue(rowNum, col, rowTitle[col])
-#     #             rowNum += 1
-            
-#     #         self.sizer.Add(grid)
-#     #         panel.SetSizerAndFit(self.sizer)
-            
-#     # if __name__ == '__main__':
-#     #     app = wx.App()
-#     #     frame = myTable(None, wx.ID_ANY, title='Listings List')
-#     #     app.MainLoop()
-#     return listingToDisplay
-    
-# cleanCommentTotal = 0
-# def findKeyword(period, keyword):
-#     listingToShow = []
-#     numOfCleanlinessComments = 0
-#     #CHECK NUMBER OF KEYWORDS PROVIDED
-#     numOfKeywords = len(keyword)
-#     if numOfKeywords > 1:
-#         for kw in keyword:
-#             #CHECK IF KEYWORD MATCHES ANY AMENITIES
-#             for listing in listingList:
-#                 if (kw in listing.amenities) and (listing not in listingToShow):
-#                     #ADD THE LISTINGID TO THE LIST
-#                     listingToShow.append(listing)
-                    
-#             #CHECK IF KEYWORD MATCHES ANY COMMENTS
-#             for comment in commentSheet.iter_rows(min_row=2, max_row=100, min_col=6, max_col=6, values_only=True):
-#                 if kw in str(comment):
-#                     listingToShow.append(listing)
-            
-#             #CHECK IF KEYWORD MATCHES ANY KEYWORDS ABOUT CLEANLINESS
-#             for comment in cleanlinessKeywords:
-#                 if kw == comment:
-#                     numOfCleanlinessComments += 1
+def showCleanComments():
+    cleanCommentTotal = 0
+    cleanlinessKeywordDict = {}
+    print(reviews)
 
-#             cleanCommentTotal = numOfCleanlinessComments
-#             print('cleanCommentTotal = {}'.format(cleanCommentTotal))
-#         return listingToShow
-    
-#     else:
-#         for listing in listingList:
-#             if (keyword[0] in listing.amenities) and (listing not in listingToShow):
-#                 listingToShow.append(listing)     
-        
-#         for comment in commentSheet.iter_rows(min_row=2, max_row=100, min_col=6, max_col=6, values_only=True):
-#             if keyword[0] in str(comment):
-#                 listingToShow.append(listing)
-#     return listingToShow
+    allCommentStr = reviews.comments.values.tolist()
+    print(type(allCommentStr))
+    print(allCommentStr)
+    totalCommentList = int(len(allCommentStr))
 
-# def getListings(period, suburbName='sydney', keyword=None):
-#     listingToShow = []
-#     if keyword != None:
-#         splitKeyword = keyword.split(', ')
-#         filteredListings = findKeyword(period, splitKeyword)
-        
-#         #CHECK IF ANY MATCH FOUND
-#         if len(filteredListings > 0):
-#             for listing in filteredListings:
-#                 #CHECK IF FILTERED LISTINGS' SUBURB MATCHES THE PROVIDED ARGUMENT
-#                 streetList = (listing.street.lower()).split(', ')
-#                 if (suburbName.lower() in streetList) or (suburbName.lower() == listing.suburb.lower()):
-#                     listingToShow.append(listing)
-#             return listingToShow
+    for kw in cleanlinessKeywords:
+        for i in range(totalCommentList):
+            if kw in allCommentStr[i] and kw not in (cleanlinessKeywordDict.keys()):
+                cleanCommentTotal += 1
+                cleanlinessKeywordDict[kw] = 1
+            elif kw in allCommentStr[i] and kw in (cleanlinessKeywordDict.keys()):
+                cleanCommentTotal += 1
+                prevCount = cleanlinessKeywordDict[kw]
+                cleanlinessKeywordDict[kw] = prevCount + 1
 
-#         else:
-#             return 'No match found'
-        
-#     else:
-#         #ITERATE THROUGH THE GLOBAL LISTINGS LIST, CHECK IF THEY MATCH THE SUBURB PROVIDED
-#         for listing in listingList:
-#             #IF PROVIDED SUBURBNAME MATCHES THE SUBURB/NEIGHBOURHOOD NAME
-#             if listing.suburb.lower() == suburbName.lower():
-#                 listingToShow.append(listing)
-    
-#         return showListings(listingToShow)
+    # print(cleanlinessKeywordDict)
+    return cleanlinessKeywordDict
 
-# print(getListings(None))
 
-def showPriceDist(period):
-    counter = 0
-    propPrices = []
-    # propYears = []
-    while counter <= 10:
-        propPrices = [prop.price for prop in listingList]
-        counter += 1
-    return propPrices
-    
-print('prices: ', showPriceDist(None))
+    # reviews['comments'] = reviews.comments.apply(lambda row: for kw in cleanlinessKeywords)
 
-def showPopularListings(period, suburbName='sydney'):
-    counter = 0
-    propRating = []
-    # propYears = []
-    while counter <= 10:
-        propRating = [prop.reviewScore for prop in listingList if prop.suburb.lower() == suburbName.lower()]
-        counter += 1
-    return propRating
-    
-print('ratings: ', showPopularListings(None))
+showCleanComments()
