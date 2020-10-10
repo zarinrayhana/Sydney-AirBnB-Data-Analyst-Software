@@ -25,6 +25,7 @@ class plotPanel(wx.Panel):
         endYear = int(endDateSplitted[-1])
 
         pricesList = showPriceDist(startDate, endDate)
+        # print(pricesList)
 
         for priceList in pricesList:
             self.axes.hist(priceList, range=(0, 3000), bins=150, alpha=0.5, density=True)
@@ -39,7 +40,7 @@ class gui(wx.Frame) :
         wx.Frame.__init__(self, parent, id, 'Sydney AirBnB Analysis and Visualisation Tool', size=(1200, 650))
         self.panel = wx.Panel(self)
         
-        getname = wx.TextEntryDialog(None,"What's your name", "Title", 'Enter Name')
+        getname = wx.TextEntryDialog(None,"What's your name", "Welcome", 'Enter Name')
         if getname.ShowModal()==wx.ID_OK:
             gottenname = getname.GetValue()
         username = wx.StaticText(self.panel, -1, label=gottenname, pos=(450, 10), style=wx.ALIGN_CENTER)
@@ -98,7 +99,7 @@ class gui(wx.Frame) :
         self.userInput['startDate'] = startDate
 
     def endPeriodOnChange(self, event):
-        endDate = self.startperiod.GetValue()
+        endDate = self.endperiod.GetValue()
         self.userInput['endDate'] = endDate
 
     def search(self, event):
@@ -125,21 +126,41 @@ class gui(wx.Frame) :
         self.endperiod.Clear()
 
     def showPriceDist(self, event):
+        # INITIALIZE THE MATPLOTLIB CLASS
         self.myMatplotlib = plotPanel(self)
         self.myMatplotlib.priceDistribution(self.userInput['startDate'], self.userInput['endDate'])
-        # INITIALIZE THE MATPLOTLIB CLASS
+
         sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(self.myMatplotlib, 1, wx.EXPAND)
-        self.SetSizerAndFit(sizer)
-
-
+        sizer.Add(self.myMatplotlib)
+        self.resultDisplay.SetSizerAndFit(sizer)
 
     def showPopularListings(self, event):
+        showPopularListings(self.userInput['startDate'], self.userInput)
         pass
 
     def cleanlinessComments(self, event):
-        pass
+        commentDict = showCleanComments()
+        commentItems = list(commentDict.items())
 
+        commentSizer = wx.BoxSizer(wx.VERTICAL)
+
+        table = wx.grid.Grid(self, -1)
+        table.SetRowLabelValue(0, 'Comments about cleanliness')
+        table.SetRowLabelValue(1, 'Number of comments found')
+        table.SetRowLabelSize(0)
+        table.SetColLabelSize(0)
+        table.CreateGrid(2, len(commentItems))
+
+        # SETTING THE TABLE CONTENTS
+        colNum = 0
+        for comment in commentItems:
+            table.SetCellValue(0, colNum, comment[0])
+            table.SetCellValue(1, colNum, str(comment[1]))
+
+            colNum += 1
+
+        commentSizer.Add(table)
+        self.resultDisplay.SetSizerAndFit(commentSizer)
 
 
 
